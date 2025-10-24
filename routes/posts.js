@@ -81,7 +81,9 @@ router.get('/:id', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
+    console.log('📦 Corpo recebido:', req.body);
     const { title, content, category_id, author_id } = req.body;
+    const safeContent = content ?? '';
 
     const { data: existingProfile } = await supabase
       .from('profiles')
@@ -97,7 +99,7 @@ router.post('/', async (req, res) => {
       .from('posts')
       .insert({
         title,
-        content,
+        content: safeContent,
         category_id,
         author_id
       })
