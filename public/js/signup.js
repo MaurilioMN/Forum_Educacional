@@ -3,6 +3,7 @@ const API_URL = window.location.origin;
 document.getElementById('signup-form').addEventListener('submit', async (e) => {
   e.preventDefault();
 
+  const username = document.getElementById('username').value;
   const email = document.getElementById('email').value;
   const password = document.getElementById('password').value;
   const confirmPassword = document.getElementById('confirm-password').value;
@@ -12,6 +13,12 @@ document.getElementById('signup-form').addEventListener('submit', async (e) => {
   const btnText = submitBtn.querySelector('span');
 
   errorDiv.style.display = 'none';
+
+  if (username.length < 3) {
+    errorDiv.textContent = 'Username must be at least 3 characters';
+    errorDiv.style.display = 'block';
+    return;
+  }
 
   if (password !== confirmPassword) {
     errorDiv.textContent = 'Passwords do not match';
@@ -35,7 +42,7 @@ document.getElementById('signup-form').addEventListener('submit', async (e) => {
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ email, password })
+      body: JSON.stringify({ username, email, password })
     });
 
     const data = await response.json();

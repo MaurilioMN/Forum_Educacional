@@ -37,6 +37,10 @@ app.get('/signup', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'signup.html'));
 });
 
+app.get('/profile/:id', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'profile.html'));
+});
+
 app.use('/api/categories', categoriesRouter);
 
 app.listen(PORT, () => {

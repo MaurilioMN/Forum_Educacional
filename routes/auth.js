@@ -5,7 +5,7 @@ const router = express.Router();
 
 router.post('/signup', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, username } = req.body;
 
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -14,6 +14,23 @@ router.post('/signup', async (req, res) => {
 
     if (error) {
       return res.status(400).json({ error: error.message });
+    }
+
+    if (data.user) {
+      const profileUsername = username || email.split('@')[0];
+
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert({
+          id: data.user.id,
+          username: profileUsername,
+          avatar_url: '',
+          bio: ''
+        });
+
+      if (profileError && !profileError.message.includes('duplicate')) {
+        console.error('Profile creation error:', profileError);
+      }
     }
 
     res.json({ data });
@@ -33,6 +50,26 @@ router.post('/login', async (req, res) => {
 
     if (error) {
       return res.status(400).json({ error: error.message });
+    }
+
+    if (data.user) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', data.user.id)
+        .maybeSingle();
+
+      if (!profile) {
+        const username = email.split('@')[0];
+        await supabase
+          .from('profiles')
+          .insert({
+            id: data.user.id,
+            username: username,
+            avatar_url: '',
+            bio: ''
+          });
+      }
     }
 
     res.json({ data });
