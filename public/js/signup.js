@@ -1,4 +1,4 @@
-const API_URL = window.location.origin;
+const API_URL = window.location.origin
 
 document.getElementById('signup-form').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -39,24 +39,26 @@ document.getElementById('signup-form').addEventListener('submit', async (e) => {
   try {
     const response = await fetch(`${API_URL}/api/auth/signup`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, email, password })
     });
 
     const data = await response.json();
+    console.log("📥 Resposta da API:", response.status, data);
 
     if (!response.ok) {
       throw new Error(data.error || 'Signup failed');
     }
 
-    if (data.data?.session?.access_token) {
-      localStorage.setItem('access_token', data.data.session.access_token);
-      localStorage.setItem('user', JSON.stringify(data.data.user));
+    const session = data.session || data.data?.session;
+    const user = data.user || data.data?.user;
+
+    if (session?.access_token) {
+      localStorage.setItem('access_token', session.access_token);
+      localStorage.setItem('user', JSON.stringify(user));
       window.location.href = '/';
-    } else if (data.data?.user) {
-      errorDiv.textContent = 'Account created! Please check your email to verify your account, then login.';
+    } else if (user) {
+      errorDiv.textContent = 'Conta criada! Verifique seu email antes de fazer login.';
       errorDiv.style.display = 'block';
       errorDiv.style.background = '#d1fae5';
       errorDiv.style.color = '#065f46';

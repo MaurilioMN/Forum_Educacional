@@ -16,36 +16,13 @@ router.get('/', async (req, res) => {
       `)
       .order('created_at', { ascending: false });
 
-    if (category) {
-      const { data: categoryData } = await supabase
-        .from('categories')
-        .select('id')
-        .eq('slug', category)
-        .maybeSingle();
-
-      if (categoryData) {
-        query = query.eq('category_id', categoryData.id);
-      }
-    }
-
     const { data, error } = await query;
 
     if (error) {
       return res.status(400).json({ error: error.message });
     }
 
-    const postsWithCounts = await Promise.all(
-      (data || []).map(async (post) => {
-        const { count } = await supabase
-          .from('comments')
-          .select('*', { count: 'exact', head: true })
-          .eq('post_id', post.id);
-
-        return { ...post, comment_count: count || 0 };
-      })
-    );
-
-    res.json(postsWithCounts);
+    res.json(data);
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });
   }

@@ -1,4 +1,5 @@
-const API_URL = window.location.origin;
+const API_URL = 'http://localhost:3000';
+
 let currentUser = null;
 let currentCategory = null;
 let accessToken = localStorage.getItem('access_token');
@@ -15,6 +16,7 @@ async function init() {
 
 async function checkSession() {
   try {
+  
     const response = await fetch(`${API_URL}/api/auth/session`, {
       headers: {
         'Authorization': `Bearer ${accessToken}`
@@ -80,8 +82,9 @@ function setupEventListeners() {
     loadPosts();
   });
 
-  document.querySelector('.modal-overlay')?.addEventListener('click', (e) => {
-    if (e.target.classList.contains('modal-overlay')) {
+  const createPostOverlay = document.querySelector('#create-post-modal .modal-overlay');
+  createPostOverlay?.addEventListener('click', (e) => {
+    if (e.target === createPostOverlay) {
       hideCreatePostModal();
     }
   });
@@ -195,13 +198,16 @@ async function loadPosts() {
     const response = await fetch(url);
     const data = await response.json();
 
-    displayPosts(data);
+    console.log('📦 Retorno da API /api/posts:', data); // 👈 Adicione aqui
+
+    displayPosts(Array.isArray(data) ? data : []); // 👈 proteção extra
   } catch (error) {
     console.error('Error loading posts:', error);
   } finally {
     showLoading(false);
   }
 }
+
 
 function displayPosts(posts) {
   const postList = document.getElementById('post-list');
