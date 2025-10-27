@@ -1,21 +1,15 @@
-const API_URL = window.location.origin;
+import { buildApiUrl, describeFetchError } from './api-client.js';
+
 let currentUser = null;
 let profileUser = null;
 let accessToken = localStorage.getItem('access_token');
-console.log('accessToken:', localStorage.getItem('access_token'));
 
-
-// Pega o ID do usuário da URL
 const userId = window.location.pathname.split('/').pop();
 
 async function init() {
-  console.log('currentUser antes do checkSession:', currentUser);
-
   if (accessToken) {
     await checkSession();
   }
-
-  console.log('currentUser depois do checkSession:', currentUser);
 
   updateUI();
   setupEventListeners();
@@ -23,20 +17,18 @@ async function init() {
   await loadUserPosts();
 }
 
-
 async function checkSession() {
   try {
-    const response = await fetch(`${API_URL}/api/auth/session`, {
+    const response = await fetch(buildApiUrl('/api/auth/session'), {
       headers: {
-        'Authorization': `Bearer ${accessToken}`
+        Authorization: `Bearer ${accessToken}`
       }
     });
 
     const data = await response.json();
-    console.log('data.session:', data.session); // verifique se tem o user
 
     if (data.session?.user) {
-      currentUser = data.session.user; // <-- currentUser agora tem valor
+      currentUser = data.session.user;
     } else {
       clearSession();
     }
@@ -88,7 +80,7 @@ async function loadProfile() {
   showLoading(true);
 
   try {
-    const response = await fetch(`${API_URL}/api/users/${userId}`);
+    const response = await fetch(buildApiUrl(`/api/users/${userId}`));
     const data = await response.json();
 
     if (!response.ok) {
@@ -108,10 +100,19 @@ async function loadProfile() {
   }
 }
 
-console.log('currentUser.id:', currentUser?.id);
-console.log('userId from URL:', userId);
-console.log('Are they equal?', String(currentUser?.id) === String(userId));
+async function loadUserPosts() {
+  try {
+    const response = await fetch(buildApiUrl(`/api/users/${userId}/posts`));
+    const data = await response.json();
 
+    const postCountEl = document.getElementById('profile-post-count');
+    if (postCountEl) postCountEl.textContent = `${data.length} post${data.length !== 1 ? 's' : ''}`;
+
+    displayPosts(data);
+  } catch (error) {
+    console.error('Error loading user posts:', error);
+  }
+}
 
 function displayProfile(profile) {
   const usernameEl = document.getElementById('profile-username');
@@ -121,23 +122,8 @@ function displayProfile(profile) {
   if (usernameEl) usernameEl.textContent = profile.username || 'Anonymous';
   if (bioEl) bioEl.textContent = profile.bio || 'No bio yet';
 
-  // Mostra o botão de edição apenas se o usuário logado for o mesmo do perfil
   if (editBtn && currentUser && String(currentUser.id) === String(userId)) {
     editBtn.style.display = 'flex';
-  }
-}
-
-async function loadUserPosts() {
-  try {
-    const response = await fetch(`${API_URL}/api/users/${userId}/posts`);
-    const data = await response.json();
-
-    const postCountEl = document.getElementById('profile-post-count');
-    if (postCountEl) postCountEl.textContent = `${data.length} post${data.length !== 1 ? 's' : ''}`;
-
-    displayPosts(data);
-  } catch (error) {
-    console.error('Error loading user posts:', error);
   }
 }
 
@@ -151,28 +137,32 @@ function displayPosts(posts) {
     return;
   }
 
-  userPosts.innerHTML = posts.map(post => `
-    <div class="post-card" onclick="window.location.href='/?post=${post.id}'">
-      <h3 class="post-title">${escapeHtml(post.title)}</h3>
-      <p class="post-excerpt">${escapeHtml(post.content)}</p>
-      <div class="post-meta">
-        <span class="post-time">
-          <svg style="width: 16px; height: 16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10"></circle>
-            <polyline points="12 6 12 12 16 14"></polyline>
-          </svg>
-          ${formatDate(post.created_at)}
-        </span>
-        ${post.categories ? `<span class="post-category-badge">${escapeHtml(post.categories.name)}</span>` : ''}
-        <span class="post-comments">
-          <svg style="width: 16px; height: 16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-          </svg>
-          ${post.comment_count}
-        </span>
+  userPosts.innerHTML = posts
+    .map(
+      (post) => `
+      <div class="post-card" onclick="window.location.href='/?post=${post.id}'">
+        <h3 class="post-title">${escapeHtml(post.title)}</h3>
+        <p class="post-excerpt">${escapeHtml(post.content)}</p>
+        <div class="post-meta">
+          <span class="post-time">
+            <svg style="width: 16px; height: 16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+            ${formatDate(post.created_at)}
+          </span>
+          ${post.categories ? `<span class="post-category-badge">${escapeHtml(post.categories.name)}</span>` : ''}
+          <span class="post-comments">
+            <svg style="width: 16px; height: 16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+            </svg>
+            ${post.comment_count}
+          </span>
+        </div>
       </div>
-    </div>
-  `).join('');
+    `
+    )
+    .join('');
 }
 
 function showEditProfileModal() {
@@ -205,11 +195,11 @@ async function handleEditProfile(e) {
   const errorDiv = document.getElementById('edit-profile-error');
 
   try {
-    const response = await fetch(`${API_URL}/api/users/${userId}`, {
+    const response = await fetch(buildApiUrl(`/api/users/${userId}`), {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken}`
+        Authorization: `Bearer ${accessToken}`
       },
       body: JSON.stringify({ username, bio })
     });
@@ -223,7 +213,7 @@ async function handleEditProfile(e) {
     hideEditProfileModal();
   } catch (error) {
     if (errorDiv) {
-      errorDiv.textContent = error.message;
+      errorDiv.textContent = describeFetchError(error, 'Failed to update profile');
       errorDiv.style.display = 'block';
     }
   }

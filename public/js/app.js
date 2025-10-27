@@ -1,4 +1,5 @@
-const API_URL = window.location.origin;
+import { buildApiUrl, describeFetchError } from './api-client.js';
+
 let currentUser = null;
 let currentCategory = null;
 let accessToken = localStorage.getItem('access_token');
@@ -15,9 +16,9 @@ async function init() {
 
 async function checkSession() {
   try {
-    const response = await fetch(`${API_URL}/api/auth/session`, {
+    const response = await fetch(buildApiUrl('/api/auth/session'), {
       headers: {
-        'Authorization': `Bearer ${accessToken}`
+        Authorization: `Bearer ${accessToken}`
       }
     });
 
@@ -26,18 +27,19 @@ async function checkSession() {
     if (data.session?.user) {
       currentUser = data.session.user;
     } else {
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('user');
-      accessToken = null;
-      currentUser = null;
+      clearSession();
     }
   } catch (error) {
     console.error('Session check failed:', error);
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('user');
-    accessToken = null;
-    currentUser = null;
+    clearSession();
   }
+}
+
+function clearSession() {
+  localStorage.removeItem('access_token');
+  localStorage.removeItem('user');
+  accessToken = null;
+  currentUser = null;
 }
 
 function updateUI() {
@@ -58,10 +60,7 @@ function updateUI() {
 
 function setupEventListeners() {
   document.getElementById('logout-btn').addEventListener('click', async () => {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('user');
-    accessToken = null;
-    currentUser = null;
+    clearSession();
     updateUI();
     showView('post-list');
     await loadPosts();
@@ -71,7 +70,9 @@ function setupEventListeners() {
     showCreatePostModal();
   });
 
-  document.getElementById('close-create-post-modal').addEventListener('click', hideCreatePostModal);
+  document
+    .getElementById('close-create-post-modal')
+    .addEventListener('click', hideCreatePostModal);
 
   document.getElementById('create-post-form').addEventListener('submit', handleCreatePost);
 
@@ -113,11 +114,11 @@ async function handleCreatePost(e) {
   const errorDiv = document.getElementById('create-post-error');
 
   try {
-    const response = await fetch(`${API_URL}/api/posts`, {
+    const response = await fetch(buildApiUrl('/api/posts'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken}`
+        Authorization: `Bearer ${accessToken}`
       },
       body: JSON.stringify({
         title,
@@ -136,14 +137,14 @@ async function handleCreatePost(e) {
     hideCreatePostModal();
     await loadPosts();
   } catch (error) {
-    errorDiv.textContent = error.message;
+    errorDiv.textContent = describeFetchError(error, 'Failed to create post');
     errorDiv.style.display = 'block';
   }
 }
 
 async function loadCategories() {
   try {
-    const response = await fetch(`${API_URL}/api/categories`);
+    const response = await fetch(buildApiUrl('/api/categories'));
     const data = await response.json();
 
     const categoryList = document.getElementById('category-list');
@@ -152,14 +153,14 @@ async function loadCategories() {
     const categorySelect = document.getElementById('post-category');
     categorySelect.innerHTML = '<option value="">Select a category</option>';
 
-    data.forEach(category => {
+    data.forEach((category) => {
       const btn = document.createElement('button');
       btn.className = 'category-btn';
       btn.textContent = category.name;
       btn.dataset.category = category.slug;
       btn.addEventListener('click', () => {
         currentCategory = category.slug;
-        document.querySelectorAll('.category-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.category-btn').forEach((b) => b.classList.remove('active'));
         btn.classList.add('active');
         showView('post-list');
         loadPosts();
@@ -174,7 +175,7 @@ async function loadCategories() {
 
     categoryList.querySelector('[data-category=""]').addEventListener('click', () => {
       currentCategory = null;
-      document.querySelectorAll('.category-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.category-btn').forEach((b) => b.classList.remove('active'));
       categoryList.querySelector('[data-category=""]').classList.add('active');
       showView('post-list');
       loadPosts();
@@ -189,8 +190,8 @@ async function loadPosts() {
 
   try {
     const url = currentCategory
-      ? `${API_URL}/api/posts?category=${currentCategory}`
-      : `${API_URL}/api/posts`;
+      ? buildApiUrl('/api/posts', { category: currentCategory })
+      : buildApiUrl('/api/posts');
 
     const response = await fetch(url);
     const data = await response.json();
@@ -211,7 +212,9 @@ function displayPosts(posts) {
     return;
   }
 
-  postList.innerHTML = posts.map(post => `
+  postList.innerHTML = posts
+    .map(
+      (post) => `
     <div class="post-card" data-post-id="${post.id}">
       <h3 class="post-title">${escapeHtml(post.title)}</h3>
       <p class="post-excerpt">${escapeHtml(post.content)}</p>
@@ -233,9 +236,11 @@ function displayPosts(posts) {
         </span>
       </div>
     </div>
-  `).join('');
+  `
+    )
+    .join('');
 
-  document.querySelectorAll('.post-card').forEach(card => {
+  document.querySelectorAll('.post-card').forEach((card) => {
     card.addEventListener('click', () => {
       loadPostDetail(card.dataset.postId);
     });
@@ -248,8 +253,8 @@ async function loadPostDetail(postId) {
 
   try {
     const [postResponse, commentsResponse] = await Promise.all([
-      fetch(`${API_URL}/api/posts/${postId}`),
-      fetch(`${API_URL}/api/comments?post_id=${postId}`)
+      fetch(buildApiUrl(`/api/posts/${postId}`)),
+      fetch(buildApiUrl('/api/comments', { post_id: postId }))
     ]);
 
     const post = await postResponse.json();
@@ -287,22 +292,30 @@ function displayPostDetail(post, comments) {
 
   commentsSection.innerHTML = `
     <h3 class="comments-title">Comments (${comments.length})</h3>
-    ${currentUser ? `
+    ${
+      currentUser
+        ? `
       <form class="comment-form" id="comment-form">
         <div class="form-group">
           <textarea id="comment-content" placeholder="Write a comment..." rows="3" required></textarea>
         </div>
         <button type="submit" class="btn btn-primary">Post Comment</button>
       </form>
-    ` : '<p class="empty-state">Please <a href="/login">login</a> to comment</p>'}
+    `
+        : '<p class="empty-state">Please <a href="/login">login</a> to comment</p>'
+    }
     <div class="comment-list">
-      ${comments.map(comment => `
+      ${comments
+        .map(
+          (comment) => `
         <div class="comment-card">
           <div class="comment-author">${escapeHtml(comment.profiles?.username || 'Anonymous')}</div>
           <div class="comment-content">${escapeHtml(comment.content)}</div>
           <div class="comment-time">${formatDate(comment.created_at)}</div>
         </div>
-      `).join('')}
+      `
+        )
+        .join('')}
     </div>
   `;
 
@@ -324,11 +337,11 @@ async function handleCreateComment(postId) {
   const content = document.getElementById('comment-content').value;
 
   try {
-    const response = await fetch(`${API_URL}/api/comments`, {
+    const response = await fetch(buildApiUrl('/api/comments'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken}`
+        Authorization: `Bearer ${accessToken}`
       },
       body: JSON.stringify({
         content,
@@ -345,7 +358,7 @@ async function handleCreateComment(postId) {
 
     await loadPostDetail(postId);
   } catch (error) {
-    console.error('Error creating comment:', error);
+    console.error('Error creating comment:', describeFetchError(error, 'Failed to create comment'));
     alert('Failed to create comment');
   }
 }

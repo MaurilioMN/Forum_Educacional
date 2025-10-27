@@ -1,4 +1,6 @@
-const API_URL = window.location.origin;
+import { buildApiUrl, describeFetchError } from './api-client.js';
+
+const signupEndpoint = buildApiUrl('/api/auth/signup');
 
 document.getElementById('signup-form').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -37,7 +39,7 @@ document.getElementById('signup-form').addEventListener('submit', async (e) => {
   btnText.textContent = 'Creating account...';
 
   try {
-    const response = await fetch(`${API_URL}/api/auth/signup`, {
+    const response = await fetch(signupEndpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -56,7 +58,8 @@ document.getElementById('signup-form').addEventListener('submit', async (e) => {
       localStorage.setItem('user', JSON.stringify(data.data.user));
       window.location.href = '/';
     } else if (data.data?.user) {
-      errorDiv.textContent = 'Account created! Please check your email to verify your account, then login.';
+      errorDiv.textContent =
+        'Account created! Please check your email to verify your account, then login.';
       errorDiv.style.display = 'block';
       errorDiv.style.background = '#d1fae5';
       errorDiv.style.color = '#065f46';
@@ -67,7 +70,7 @@ document.getElementById('signup-form').addEventListener('submit', async (e) => {
       }, 3000);
     }
   } catch (error) {
-    errorDiv.textContent = error.message;
+    errorDiv.textContent = describeFetchError(error, 'Signup failed');
     errorDiv.style.display = 'block';
     submitBtn.disabled = false;
     spinner.style.display = 'none';

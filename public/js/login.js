@@ -1,4 +1,7 @@
-const API_URL = window.location.origin;
+import { buildApiUrl, describeFetchError } from './api-client.js';
+
+const loginEndpoint = buildApiUrl('/api/auth/login');
+const sessionEndpoint = buildApiUrl('/api/auth/session');
 
 document.getElementById('login-form').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -16,7 +19,7 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
   btnText.textContent = 'Logging in...';
 
   try {
-    const response = await fetch(`${API_URL}/api/auth/login`, {
+    const response = await fetch(loginEndpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -34,11 +37,9 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
       localStorage.setItem('access_token', data.data.session.access_token);
       localStorage.setItem('user', JSON.stringify(data.data.user));
 
-      const username = data.data.user.email.split('@')[0];
-
-      const profileResponse = await fetch(`${API_URL}/api/auth/session`, {
+      const profileResponse = await fetch(sessionEndpoint, {
         headers: {
-          'Authorization': `Bearer ${data.data.session.access_token}`
+          Authorization: `Bearer ${data.data.session.access_token}`
         }
       });
 
@@ -49,7 +50,7 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
       throw new Error('Invalid response from server');
     }
   } catch (error) {
-    errorDiv.textContent = error.message;
+    errorDiv.textContent = describeFetchError(error, 'Login failed');
     errorDiv.style.display = 'block';
     submitBtn.disabled = false;
     spinner.style.display = 'none';
