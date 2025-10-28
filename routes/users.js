@@ -1,5 +1,57 @@
 import express from 'express';
-import { supabase } from '../config/supabase.js';
+const isMissingBioColumnError = (error) =>
+  error?.code === '42703' || /column\s+"?bio"?/i.test(error?.message || '');
+
+const updateProfileWithFallback = async (id, updateData) => {
+  const baseQuery = () =>
+    supabase
+      .from('profiles')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single();
+
+  const { data, error } = await baseQuery();
+
+  if (error && isMissingBioColumnError(error) && 'bio' in updateData) {
+    console.warn(
+      'Profiles table is missing the bio column. Retrying profile update without the bio field.'
+    );
+
+    const { bio, ...updateWithoutBio } = updateData;
+
+    if (Object.keys(updateWithoutBio).length === 0) {
+      return {
+        data: null,
+        error: {
+          message:
+            'The profiles table is missing the bio column. Update your database migration to re-enable bio editing.'
+        }
+      };
+    }
+
+    const {
+      data: retryData,
+      error: retryError
+    } = await supabase
+      .from('profiles')
+      .update(updateWithoutBio)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (!retryError) {
+      console.warn(
+        'Profile update succeeded after removing the bio field. Consider updating your database migration to include the bio column.'
+      );
+    }
+
+    return { data: retryData, error: retryError };
+  }
+
+  return { data, error };
+};
+
 
 const router = express.Router();
 
@@ -72,12 +124,11 @@ router.put('/:id', async (req, res) => {
     if (bio !== undefined) updateData.bio = bio;
     if (avatar_url !== undefined) updateData.avatar_url = avatar_url;
 
-    const { data, error } = await supabase
-      .from('profiles')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single();
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ error: 'No fields provided to update' });
+    }
+
+    const { data, error } = await updateProfileWithFallback(id, updateData);
 
     if (error) {
       return res.status(400).json({ error: error.message });

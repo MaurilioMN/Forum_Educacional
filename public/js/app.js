@@ -270,7 +270,7 @@ async function loadPostDetail(postId) {
 }
 
 function displayPostDetail(post, comments) {
-  const postContent = document.getElementById('post-content');
+  const postContent = document.getElementById('post-detail-content');
   const commentsSection = document.getElementById('comments-section');
 
   postContent.innerHTML = `
