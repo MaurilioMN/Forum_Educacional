@@ -159,13 +159,13 @@ async function loadCategories() {
       const btn = document.createElement('button');
       btn.className = 'category-btn';
       btn.textContent = category.name;
-      btn.dataset.category = category.slug;
+      btn.dataset.category = category.id;
       btn.addEventListener('click', () => {
-        currentCategory = category.slug;
+        currentCategory = category.id; // 👈 Envia o ID
         document.querySelectorAll('.category-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         showView('post-list');
-        loadPosts();
+        loadPosts(); // não precisa passar parâmetro, ele usa currentCategory
       });
       categoryList.appendChild(btn);
 

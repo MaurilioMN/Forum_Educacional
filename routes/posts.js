@@ -5,8 +5,9 @@ const router = express.Router();
 
 router.get('/', async (req, res) => {
   try {
-    const { category } = req.query;
+    const { category } = req.query; // category = id da categoria enviada na URL
 
+    // Monta o SELECT base
     let query = supabase
       .from('posts')
       .select(`
@@ -16,6 +17,12 @@ router.get('/', async (req, res) => {
       `)
       .order('created_at', { ascending: false });
 
+    //Buscando por category_id?
+    if (category) {
+      query = query.eq('category_id', category);
+    }
+
+    // Executa query com filtro aplicado
     const { data, error } = await query;
 
     if (error) {
@@ -24,6 +31,7 @@ router.get('/', async (req, res) => {
 
     res.json(data);
   } catch (error) {
+    console.error('Erro ao carregar posts:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
