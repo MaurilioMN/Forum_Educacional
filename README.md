@@ -98,3 +98,7 @@ Forum Educacional é uma aplicação web full-stack construída com Node.js e Su
 - `npm run dev` – inicia o servidor Express em modo desenvolvimento.
 - `npm start` – inicia o servidor (alias de `npm run dev`).
 - `npm run build` – placeholder; comando pronto para integração com pipelines futuros.
+
+## Schema Visualizer Supabase
+
+![alt text](image.png)
