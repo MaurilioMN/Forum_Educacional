@@ -1,10 +1,10 @@
 # Forum Educacional
 
-Forum Educacional é uma aplicação web full-stack construída com Node.js e Supabase que permite a criação de comunidades temáticas, publicação de tópicos e interação por meio de comentários. O projeto expõe uma API REST em Express para comunicação com o banco de dados e entrega uma interface web estática com JavaScript moderno para consumo dessa API.
+Forum Educacional é uma aplicação web full-stack construída com Node.js, Express e Supabase. A plataforma permite criar comunidades temáticas, publicar tópicos e interagir por meio de comentários. O backend expõe uma API REST e a interface web (HTML/CSS/JS) consome essa API para exibir e manipular os dados em tempo real.
 
 ## Visão geral
 
-- **Backend**: servidor Express com rotas para autenticação, posts, categorias, comentários e perfis de usuário. Persistência via Supabase Postgres usando o SDK oficial.
+- **Backend**: servidor Express com rotas para autenticação, posts, categorias, comentários e perfis de usuário. A persistência ocorre em um banco Supabase Postgres acessado via SDK oficial.
 - **Frontend**: páginas estáticas em `public/` (home, login, cadastro e perfil) com JavaScript vanilla responsável por consumir a API e atualizar a interface dinamicamente.
 - **Autenticação**: delegada ao Supabase Auth (e-mail/senha). Tokens são armazenados no `localStorage` e enviados em chamadas protegidas.
 - **Banco de dados**: script `database-migration.sql` que provisiona tabelas, políticas RLS e dados iniciais (categorias padrão) em um projeto Supabase.
@@ -14,7 +14,7 @@ Forum Educacional é uma aplicação web full-stack construída com Node.js e Su
 - [Node.js](https://nodejs.org/) 20 ou superior.
 - Conta ativa no [Supabase](https://supabase.com/) com um projeto Postgres configurado.
 
-## Configuração
+## Instalação e configuração
 
 1. **Clone o repositório**
 
@@ -57,48 +57,51 @@ Forum Educacional é uma aplicação web full-stack construída com Node.js e Su
 ## Estrutura de pastas
 
 ```
-├── config/             # Configurações compartilhadas (cliente Supabase)
-├── public/             # Assets estáticos (HTML, CSS, JS)
-├── routes/             # Rotas Express divididas por domínio
-├── server.js           # Entrada da aplicação Express
+├── config/                # Configurações compartilhadas (cliente Supabase)
+├── public/                # Assets estáticos (HTML, CSS, JS)
+├── routes/                # Rotas Express divididas por domínio
+├── server.js              # Entrada da aplicação Express
 ├── database-migration.sql # Script para criar o schema no Supabase
-├── package.json        # Scripts npm e dependências
+├── package.json           # Scripts npm e dependências
 └── README.md
 ```
 
 ## Principais rotas da API
 
-| Método | Caminho              | Descrição |
-| ------ | -------------------- | --------- |
-| `GET`  | `/api/posts`         | Lista posts (aceita `?category=<slug>`). |
-| `POST` | `/api/posts`         | Cria um post (requer token Supabase e `author_id`). |
-| `GET`  | `/api/posts/:id`     | Retorna um post com autor e categoria. |
-| `PUT`  | `/api/posts/:id`     | Atualiza título/conteúdo do post. |
-| `DELETE` | `/api/posts/:id`   | Remove um post. |
-| `GET`  | `/api/categories`    | Lista categorias disponíveis. |
-| `GET`  | `/api/comments?post=<id>` | Lista comentários de um post. |
-| `POST` | `/api/comments`      | Insere comentário autenticado. |
-| `POST` | `/api/auth/signup`   | Cria usuário no Supabase Auth e perfil associado. |
-| `POST` | `/api/auth/login`    | Autentica usuário e retorna tokens. |
-| `GET`  | `/api/auth/session`  | Valida token e retorna sessão atual. |
-| `GET`  | `/api/users/:id`     | Busca perfil público do usuário. |
+| Método   | Caminho                   | Descrição                                            |
+| -------- | ------------------------- | ---------------------------------------------------- |
+| `GET`    | `/api/posts`              | Lista posts (aceita `?category=<slug>`).             |
+| `POST`   | `/api/posts`              | Cria um post (requer token Supabase e `author_id`).  |
+| `GET`    | `/api/posts/:id`          | Retorna um post com autor e categoria.               |
+| `PUT`    | `/api/posts/:id`          | Atualiza título/conteúdo do post.                    |
+| `DELETE` | `/api/posts/:id`          | Remove um post.                                      |
+| `GET`    | `/api/categories`         | Lista categorias disponíveis.                        |
+| `GET`    | `/api/comments?post=<id>` | Lista comentários de um post.                        |
+| `POST`   | `/api/comments`           | Insere comentário autenticado.                       |
+| `POST`   | `/api/auth/signup`        | Cria usuário no Supabase Auth e perfil associado.    |
+| `POST`   | `/api/auth/login`         | Autentica usuário e retorna tokens.                  |
+| `GET`    | `/api/auth/session`       | Valida token e retorna sessão atual.                 |
+| `GET`    | `/api/users/:id`          | Busca perfil público do usuário.                     |
 
-> Consulte os arquivos dentro de `routes/` para detalhes completos e respostas de erro.
+> Consulte os arquivos dentro de `routes/` para detalhes completos, parâmetros adicionais e respostas de erro.
 
 ## Fluxo principal da interface
 
 1. Usuário acessa `/` e visualiza a lista de posts carregada de `/api/posts`.
-2. Filtro por categoria via botões gera chamadas para `/api/posts?category=<slug>`.
-3. Autenticação é feita nas páginas `/login` e `/signup`. Após login, o token é salvo e a UI libera ações protegidas.
-4. Criação de posts ocorre pelo modal "Novo Post", com envio autenticado para `/api/posts`.
-5. Página de perfil (`/profile/:id`) consome `/api/users/:id` para apresentar dados públicos e posts do autor.
+2. O filtro por categoria via botões gera chamadas para `/api/posts?category=<slug>`.
+3. Autenticação é feita nas páginas `/login` e `/signup`. Após login, o token é salvo e a interface libera ações protegidas.
+4. A criação de posts ocorre pelo modal "Novo Post", com envio autenticado para `/api/posts`.
+5. A página de perfil (`/profile/:id`) consome `/api/users/:id` para apresentar dados públicos e posts do autor.
 
 ## Scripts disponíveis
 
 - `npm run dev` – inicia o servidor Express em modo desenvolvimento.
-- `npm start` – inicia o servidor (alias de `npm run dev`).
+- `npm start` – inicia o servidor em modo produção (alias de `npm run dev`).
 - `npm run build` – placeholder; comando pronto para integração com pipelines futuros.
 
 ## Schema Visualizer Supabase
 
-![alt text](image.png)
+![Diagrama do schema Supabase ANTERIOR](image.png)
+
+
+![Diagrama do schema Supabase ATUAL](image-1.png)
