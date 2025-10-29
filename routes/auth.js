@@ -1,70 +1,18 @@
 import express from 'express';
 import { createSupabaseClient } from '../config/supabase.js';
-import { supabaseAdmin, hasServiceRoleKey } from '../config/supabaseAdmin.js';
-
-const isMissingBioColumnError = (error) =>
-  error?.code === '42703' || /column\s+"?bio"?/i.test(error?.message || '');
-
-const upsertProfileWithFallback = async (client, profile) => {
-  const { error } = await client
-    .from('profiles')
-    .upsert(profile, { onConflict: 'id' });
-
-  if (error && isMissingBioColumnError(error) && 'bio' in profile) {
-    console.warn(
-      'Profiles table is missing the bio column. Retrying profile upsert without the bio field.'
-    );
-
-    const { bio, ...profileWithoutBio } = profile;
-    const { error: retryError } = await client
-      .from('profiles')
-      .upsert(profileWithoutBio, { onConflict: 'id' });
-
-    if (!retryError) {
-      console.warn(
-        'Profile upsert succeeded after removing the bio field. Consider updating your database migration to include the bio column.'
-      );
-    }
-
-    return { error: retryError };
-  }
-
-  return { error };
-};
-
-const insertProfileWithFallback = async (client, profile) => {
-  const { error } = await client.from('profiles').insert(profile);
-
-  if (error && isMissingBioColumnError(error) && 'bio' in profile) {
-    console.warn(
-      'Profiles table is missing the bio column. Retrying profile insert without the bio field.'
-    );
-
-    const { bio, ...profileWithoutBio } = profile;
-    const { error: retryError } = await client
-      .from('profiles')
-      .insert(profileWithoutBio);
-
-    if (!retryError) {
-      console.warn(
-        'Profile insert succeeded after removing the bio field. Consider updating your database migration to include the bio column.'
-      );
-    }
-
-    return retryError;
-  }
-
-  return error;
-};
+import { supabase } from '../config/supabase.js';
 
 const router = express.Router();
 
 router.post('/signup', async (req, res) => {
   try {
-    const supabaseClient = createSupabaseClient();
     const { email, password, username } = req.body;
 
-    const { data, error } = await supabaseClient.auth.signUp({
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email e senha são obrigatórios.' });
+    }
+
+    const { data, error } = await supabase.auth.signUp({
       email,
       password
     });
@@ -74,61 +22,20 @@ router.post('/signup', async (req, res) => {
     }
 
     if (data.user) {
+      // cria o perfil manualmente (caso o trigger não rode)
       const profileUsername = username || email.split('@')[0];
-      const canHydrateSession = Boolean(
-        data.session?.access_token && data.session?.refresh_token
-      );
-
-      let profileError = null;
-
-      if (canHydrateSession) {
-        const { error: setSessionError } = await supabaseClient.auth.setSession({
-          access_token: data.session.access_token,
-          refresh_token: data.session.refresh_token
-        });
-
-        if (setSessionError) {
-          console.error('Failed to hydrate signup session:', setSessionError);
-        }
-      }
-
-      const profilePayload = {
+      await supabase.from('profiles').insert({
         id: data.user.id,
         username: profileUsername,
         avatar_url: '',
         bio: ''
-      };
-
-      if (hasServiceRoleKey && supabaseAdmin) {
-        ({ error: profileError } = await upsertProfileWithFallback(
-          supabaseAdmin,
-          profilePayload
-        ));
-      } else if (canHydrateSession) {
-        ({ error: profileError } = await upsertProfileWithFallback(
-          supabaseClient,
-          profilePayload
-        ));
-      }
-
-      if (profileError) {
-        console.error('Profile creation error:', profileError);
-
-        if (hasServiceRoleKey && supabaseAdmin) {
-          try {
-            await supabaseAdmin.auth.admin.deleteUser(data.user.id);
-          } catch (cleanupError) {
-            console.error('Cleanup error removing orphaned auth user:', cleanupError);
-          }
-        }
-
-        return res.status(500).json({ error: 'Failed to create user profile' });
-      }
+      });
     }
 
-    res.json({ data });
-  } catch (error) {
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(200).json({ message: 'Usuário criado com sucesso', data });
+  } catch (err) {
+    console.error('Signup error:', err);
+    res.status(500).json({ error: 'Erro interno ao salvar novo usuário' });
   }
 });
 
