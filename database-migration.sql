@@ -1,37 +1,25 @@
 /*
-  # Forum Database Schema Migration
+  # Forum Database Schema Migration (CORRIGIDO)
 
-  This SQL script creates the complete database schema for the forum application.
+  ## Cria:
+  - categories
+  - posts
+  - comments
+  - profiles
 
-  ## Instructions:
-  1. Go to your Supabase project dashboard
-  2. Navigate to SQL Editor
-  3. Copy and paste this entire file
-  4. Click "Run" to execute the migration
-
-  ## What this migration creates:
-
-  1. Tables:
-    - categories: Forum categories with name, description, and slug
-    - posts: Forum posts with title, content, author, and category
-    - comments: Comments on posts with content and author
-    - profiles: User profiles with username and avatar
-
-  2. Security (Row Level Security):
-    - All tables have RLS enabled
-    - Public read access for categories, posts, comments, and profiles
-    - Authenticated users can create posts and comments
-    - Users can only update/delete their own content
-
-  3. Default Data:
-    - Four default categories (General, Technology, Help, Announcements)
-
-  4. Indexes:
-    - Optimized for category filtering and chronological sorting
+  ## Inclui:
+  - RLS (Row Level Security)
+  - Políticas de acesso seguras
+  - Trigger automático para criar perfil ao registrar usuário
+  - Categorias padrão
 */
 
--- Create categories table
-CREATE TABLE IF NOT EXISTS categories (
+-- =========================================
+-- 1️⃣  TABELAS PRINCIPAIS
+-- =========================================
+
+-- Categorias
+CREATE TABLE IF NOT EXISTS public.categories (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text UNIQUE NOT NULL,
   description text DEFAULT '',
@@ -39,159 +27,135 @@ CREATE TABLE IF NOT EXISTS categories (
   created_at timestamptz DEFAULT now()
 );
 
--- Create posts table
-CREATE TABLE IF NOT EXISTS posts (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  title text NOT NULL,
-  content text NOT NULL,
-  author_id uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  category_id uuid REFERENCES categories(id) ON DELETE CASCADE NOT NULL,
-  created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now()
-);
-
--- Create comments table
-CREATE TABLE IF NOT EXISTS comments (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  content text NOT NULL,
-  author_id uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  post_id uuid REFERENCES posts(id) ON DELETE CASCADE NOT NULL,
-  created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now()
-);
-
--- Create profiles table
-CREATE TABLE IF NOT EXISTS profiles (
+-- Perfis
+CREATE TABLE IF NOT EXISTS public.profiles (
   id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   username text UNIQUE NOT NULL,
   avatar_url text DEFAULT '',
+  bio text DEFAULT '',
   created_at timestamptz DEFAULT now()
 );
 
--- Create indexes for better performance
-CREATE INDEX IF NOT EXISTS posts_category_id_idx ON posts(category_id);
-CREATE INDEX IF NOT EXISTS posts_created_at_idx ON posts(created_at DESC);
-CREATE INDEX IF NOT EXISTS comments_post_id_idx ON comments(post_id);
-CREATE INDEX IF NOT EXISTS comments_created_at_idx ON comments(created_at DESC);
+-- Posts
+CREATE TABLE IF NOT EXISTS public.posts (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  title text NOT NULL,
+  content text NOT NULL,
+  author_id uuid REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  category_id uuid REFERENCES public.categories(id) ON DELETE CASCADE NOT NULL,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
 
--- Enable Row Level Security
-ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
-ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
-ALTER TABLE comments ENABLE ROW LEVEL SECURITY;
-ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+-- Comentários
+CREATE TABLE IF NOT EXISTS public.comments (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  content text NOT NULL,
+  author_id uuid REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  post_id uuid REFERENCES public.posts(id) ON DELETE CASCADE NOT NULL,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
 
--- Categories policies (public read access)
+-- =========================================
+-- 2️⃣  ÍNDICES
+-- =========================================
+CREATE INDEX IF NOT EXISTS posts_category_id_idx ON public.posts(category_id);
+CREATE INDEX IF NOT EXISTS posts_created_at_idx ON public.posts(created_at DESC);
+CREATE INDEX IF NOT EXISTS comments_post_id_idx ON public.comments(post_id);
+CREATE INDEX IF NOT EXISTS comments_created_at_idx ON public.comments(created_at DESC);
+
+-- =========================================
+-- 3️⃣  SEGURANÇA (RLS)
+-- =========================================
+ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.posts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.comments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+
+-- CATEGORIES
 CREATE POLICY "Anyone can view categories"
-  ON categories FOR SELECT
+  ON public.categories FOR SELECT
   USING (true);
 
--- Posts policies
+-- POSTS
 CREATE POLICY "Anyone can view posts"
-  ON posts FOR SELECT
+  ON public.posts FOR SELECT
   USING (true);
 
 CREATE POLICY "Authenticated users can create posts"
-  ON posts FOR INSERT
+  ON public.posts FOR INSERT
   TO authenticated
   WITH CHECK (auth.uid() = author_id);
 
 CREATE POLICY "Users can update own posts"
-  ON posts FOR UPDATE
+  ON public.posts FOR UPDATE
   TO authenticated
   USING (auth.uid() = author_id)
   WITH CHECK (auth.uid() = author_id);
 
 CREATE POLICY "Users can delete own posts"
-  ON posts FOR DELETE
+  ON public.posts FOR DELETE
   TO authenticated
   USING (auth.uid() = author_id);
 
--- Comments policies
+-- COMMENTS
 CREATE POLICY "Anyone can view comments"
-  ON comments FOR SELECT
+  ON public.comments FOR SELECT
   USING (true);
 
 CREATE POLICY "Authenticated users can create comments"
-  ON comments FOR INSERT
+  ON public.comments FOR INSERT
   TO authenticated
   WITH CHECK (auth.uid() = author_id);
 
 CREATE POLICY "Users can update own comments"
-  ON comments FOR UPDATE
+  ON public.comments FOR UPDATE
   TO authenticated
   USING (auth.uid() = author_id)
   WITH CHECK (auth.uid() = author_id);
 
 CREATE POLICY "Users can delete own comments"
-  ON comments FOR DELETE
+  ON public.comments FOR DELETE
   TO authenticated
   USING (auth.uid() = author_id);
 
--- Profiles policies
+-- PROFILES
 CREATE POLICY "Anyone can view profiles"
-  ON profiles FOR SELECT
+  ON public.profiles FOR SELECT
   USING (true);
 
 CREATE POLICY "Users can insert own profile"
-  ON profiles FOR INSERT
+  ON public.profiles FOR INSERT
   TO authenticated
   WITH CHECK (auth.uid() = id);
 
 CREATE POLICY "Users can update own profile"
-  ON profiles FOR UPDATE
+  ON public.profiles FOR UPDATE
   TO authenticated
   USING (auth.uid() = id)
   WITH CHECK (auth.uid() = id);
 
--- Insert default categories
-INSERT INTO categories (name, description, slug) VALUES
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger AS $$
+BEGIN
+  INSERT INTO public.profiles (id, username)
+  VALUES (new.id, split_part(new.email, '@', 1))
+  ON CONFLICT (id) DO NOTHING;
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS create_profile_after_user ON auth.users;
+
+CREATE TRIGGER create_profile_after_user
+AFTER INSERT ON auth.users
+FOR EACH ROW
+EXECUTE FUNCTION public.handle_new_user();
+
+INSERT INTO public.categories (name, description, slug) VALUES
   ('General', 'General discussion topics', 'general'),
   ('Technology', 'Discuss technology and programming', 'technology'),
   ('Help', 'Get help and support', 'help'),
   ('Announcements', 'Important announcements', 'announcements')
 ON CONFLICT (slug) DO NOTHING;
-
-alter table posts
-drop constraint if exists fk_posts_profiles,
-drop constraint if exists posts_author_id_fkey;
-
-alter table posts
-add constraint fk_posts_profiles
-foreign key (author_id)
-references profiles (id)
-on delete cascade;
-
--- Função para criar perfil automaticamente
-create or replace function public.handle_new_user()
-returns trigger as $$
-begin
-  insert into profiles (id, username)
-  values (new.id, split_part(new.email, '@', 1))
-  on conflict (id) do nothing;
-  return new;
-end;
-$$ language plpgsql;
-
--- Trigger que chama a função ao criar um novo usuário
-drop trigger if exists create_profile_after_user on auth.users;
-
-create trigger create_profile_after_user
-after insert on auth.users
-for each row
-execute function public.handle_new_user();
-
-select * from auth.users;
-
-select trigger_name, event_manipulation, event_object_table
-from information_schema.triggers
-where event_object_table = 'users';
- 
-select column_name, data_type from information_schema.columns where table_name = 'profiles';
-
-create table if not exists public.profiles (
-  id uuid primary key references auth.users(id) on delete cascade,
-  username text unique,
-  avatar_url text default '',
-  bio text default '',
-  created_at timestamp with time zone default now()
-);
